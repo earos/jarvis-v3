@@ -23,6 +23,17 @@ from app.tools.homelab.prometheus import PrometheusTool
 from app.tools.homelab.uptime_kuma import UptimeKumaTool
 from app.tools.homelab.unifi_protect import UniFiProtectQueryTool
 
+
+# Import conversation models
+from app.models.conversations import (
+    create_conversation,
+    get_conversation,
+    list_conversations,
+    add_message,
+    get_conversation_messages,
+    update_conversation_title
+)
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -66,6 +77,8 @@ class APICost(Base):
 class ChatRequestV2(BaseModel):
     message: str
     session_id: Optional[str] = None
+    conversation_id: Optional[str] = None  # New field for conversation tracking
+    stream: bool = True
 
 
 class SettingsUpdate(BaseModel):
@@ -74,27 +87,77 @@ class SettingsUpdate(BaseModel):
 
 
 
+
+# Helper function to generate conversation title from first message
+def generate_title(message: str) -> str:
+    """Generate a short title from the first message"""
+    # Take first 50 characters, strip, and add ellipsis if needed
+    title = message[:50].strip()
+    if len(message) > 50:
+        title += "..."
+    return title
+
+
 # ============================================================================
 # 1. CHAT ENDPOINT - /api/chat/v2 (POST)
 # ============================================================================
 @router.post("/api/chat/v2")
 async def chat_v2(request: ChatRequestV2):
     """
-    Streaming chat endpoint with SSE format.
+    Streaming chat endpoint with SSE format and conversation persistence.
     Compatible with frontend expectations.
     """
     async def generate():
         try:
-            # Track for cost calculation
+            conversation_id = request.conversation_id
+            conversation_history = []
+
+            # Handle conversation context
+            if conversation_id:
+                # Load existing conversation
+                conversation = await get_conversation(conversation_id)
+                if not conversation:
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Conversation not found'})}\n\n"
+                    return
+                
+                # Load message history for Claude context
+                messages = await get_conversation_messages(conversation_id)
+                conversation_history = [msg.to_claude_message() for msg in messages]
+                
+                logger.info(f"Loaded conversation {conversation_id} with {len(conversation_history)} messages")
+            else:
+                # Create new conversation
+                conversation = await create_conversation()
+                conversation_id = conversation.id
+                logger.info(f"Created new conversation {conversation_id}")
+
+            # Save user message to database
+            await add_message(
+                conversation_id=conversation_id,
+                role="user",
+                content=request.message
+            )
+
+            # If this is the first message, generate a title
+            if not conversation_history:
+                title = generate_title(request.message)
+                await update_conversation_title(conversation_id, title)
+
+            # Track for cost calculation and response
             input_tokens = 0
             output_tokens = 0
             tools_used = []
+            assistant_response = ""
 
+            # Process with orchestrator, passing conversation history
             async for chunk in get_orchestrator().process_stream(
                 message=request.message,
-                domain="homelab"
+                domain="homelab",
+                conversation_history=conversation_history  # Pass history to orchestrator
             ):
                 if chunk["type"] == "text":
+                    # Accumulate assistant response
+                    assistant_response += chunk["content"]
                     # Send text chunk
                     yield f"data: {json.dumps({'type': 'content', 'content': chunk['content']})}\n\n"
 
@@ -116,7 +179,15 @@ async def chat_v2(request: ChatRequestV2):
                     # Calculate cost (Claude Sonnet 4 pricing)
                     cost = (input_tokens * 0.000003) + (output_tokens * 0.000015)
 
-                    # Save to database
+                    # Save assistant response to database
+                    if assistant_response:
+                        await add_message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=assistant_response
+                        )
+
+                    # Save cost to database
                     try:
                         db = SessionLocal()
                         cost_record = APICost(
@@ -133,8 +204,8 @@ async def chat_v2(request: ChatRequestV2):
                     except Exception as e:
                         logger.error(f"Failed to save cost record: {e}")
 
-                    # Send done event
-                    yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+                    # Send done event with conversation_id
+                    yield f"data: {json.dumps({'type': 'done', 'content': '', 'conversation_id': conversation_id})}\n\n"
 
         except Exception as e:
             logger.error(f"Chat error: {e}", exc_info=True)
@@ -148,6 +219,48 @@ async def chat_v2(request: ChatRequestV2):
             "Connection": "keep-alive",
         }
     )
+
+
+# ============================================================================
+# CONVERSATION HISTORY ENDPOINTS
+# ============================================================================
+@router.get("/api/history")
+async def get_history(limit: int = 50, offset: int = 0):
+    """
+    Get list of conversations ordered by most recent.
+    """
+    try:
+        conversations = await list_conversations(limit=limit, offset=offset)
+        return {
+            "conversations": [conv.to_dict() for conv in conversations],
+            "count": len(conversations)
+        }
+    except Exception as e:
+        logger.error(f"Get history error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/history/{conversation_id}")
+async def get_conversation_detail(conversation_id: str):
+    """
+    Get a specific conversation with all messages.
+    """
+    try:
+        conversation = await get_conversation(conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        messages = await get_conversation_messages(conversation_id)
+        
+        return {
+            "conversation": conversation.to_dict(),
+            "messages": [msg.to_dict() for msg in messages]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get conversation detail error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
@@ -692,13 +805,4 @@ async def get_topology():
     }
 
 
-# ============================================================================
-# 10. HISTORY ENDPOINT - /api/history (GET)
-# ============================================================================
-@router.get("/api/history")
-async def get_history(limit: int = 20):
-    """
-    Get conversation history.
-    """
-    # For now return empty - can be extended to store conversations
-    return {"history": [], "count": 0}
+

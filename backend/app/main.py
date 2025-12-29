@@ -21,8 +21,9 @@ from app.api.websocket.handlers import websocket_endpoint, connection_manager
 from app.core.events import event_bus
 from app.api.v1.webhooks import router as webhook_router
 from app.api.v1.compatibility import router as compatibility_router
-from app.api.v1.integrations import router as integrations_router
 
+from app.api.v1.integrations import router as integrations_router
+from app.models.conversations import init_db
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +39,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler"""
     # Startup
     logger.info("Starting JARVIS v3...")
+
+    # Initialize conversation database
+    logger.info("Initializing conversation database...")
+    await init_db()
+    logger.info("Conversation database initialized")
 
     # Auto-discover tools
     count = tool_registry.auto_discover()
@@ -76,7 +82,6 @@ app.add_middleware(
 # Include routers
 app.include_router(webhook_router, prefix="/api", tags=["webhooks"])
 app.include_router(compatibility_router, tags=["compatibility"])
-app.include_router(integrations_router, tags=["integrations"])
 
 
 # Request/Response models

@@ -7,7 +7,7 @@ class JarvisHUD {
     this.waveformPhase = 0;
 
     // Session persistence
-    this.sessionId = localStorage.getItem('jarvis_session_id') || null;
+    this.conversationId = localStorage.getItem('jarvis_conversation_id') || null;
 
     this.elements = {
       chatContainer: document.getElementById('chatContainer'),
@@ -328,7 +328,7 @@ class JarvisHUD {
       const response = await fetch(JARVIS_CONFIG.API.CHAT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: this.sessionId })
+        body: JSON.stringify({ message: text, conversation_id: this.conversationId })
       });
 
       const reader = response.body.getReader();
@@ -354,9 +354,9 @@ class JarvisHUD {
                 streamingText.innerHTML = this.formatMessage(fullResponse);
                 this.elements.chatContainer.scrollTop = this.elements.chatContainer.scrollHeight;
               } else if (data.type === 'done') {
-                if (data.session_id) {
-                  this.sessionId = data.session_id;
-                  localStorage.setItem('jarvis_session_id', data.session_id);
+                if (data.conversation_id) {
+                  this.conversationId = data.conversation_id;
+                  localStorage.setItem('jarvis_conversation_id', data.conversation_id);
                 }
                 this.pulseReactor();
                 if (fullResponse.trim()) {
