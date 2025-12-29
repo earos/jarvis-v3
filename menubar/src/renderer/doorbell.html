@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS - Doorbell Alert</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="doorbell">
+  <div class="doorbell-header">
+    <div class="doorbell-title">
+      <span class="alert-icon">🔔</span>
+      <span>Someone is at the door</span>
+    </div>
+    <div class="doorbell-time" id="timestamp"></div>
+  </div>
+  
+  <div class="camera-feed">
+    <img id="cameraStream" src="" alt="Camera Feed" />
+    <div class="loading" id="loading">Loading camera...</div>
+  </div>
+  
+  <div class="doorbell-actions">
+    <button class="action-btn answer-btn" id="answerBtn">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 3h14v14H3z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      Answer
+    </button>
+    <button class="action-btn dismiss-btn" id="dismissBtn">
+      Dismiss
+    </button>
+  </div>
+  
+  <script src="doorbell.js"></script>
+</body>
+</html>

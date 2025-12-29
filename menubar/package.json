@@ -1,0 +1,54 @@
+{
+  "name": "jarvis-menubar",
+  "version": "1.0.0",
+  "description": "JARVIS macOS Menu Bar Application",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "npm run build && npm start",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "clean": "rm -rf dist build"
+  },
+  "keywords": [
+    "jarvis",
+    "electron",
+    "menubar"
+  ],
+  "author": "JARVIS",
+  "license": "MIT",
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.9",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.2"
+  },
+  "build": {
+    "appId": "com.jarvis.menubar",
+    "productName": "JARVIS",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "files": [
+      "dist/**/*",
+      "src/renderer/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "build"
+    }
+  }
+}

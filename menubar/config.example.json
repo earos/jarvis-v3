@@ -1,0 +1,30 @@
+{
+  "websocket": {
+    "url": "ws://localhost:8000/ws",
+    "reconnectInterval": 5000,
+    "maxReconnectAttempts": 10
+  },
+  "window": {
+    "quickChat": {
+      "width": 400,
+      "height": 500,
+      "position": "top-right"
+    },
+    "doorbell": {
+      "width": 500,
+      "height": 600,
+      "autoCloseAfter": 30000
+    }
+  },
+  "shortcuts": {
+    "quickChat": "CommandOrControl+Shift+J"
+  },
+  "notifications": {
+    "enabled": true,
+    "sound": true
+  },
+  "tray": {
+    "icon": "assets/tray-icon.png",
+    "tooltip": "JARVIS v3"
+  }
+}

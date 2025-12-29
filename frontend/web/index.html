@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Arc Reactor background element -->
+  <div class="arc-reactor-container" id="arcReactor">
+    <svg class="arc-reactor" viewBox="0 0 200 200">
+      <!-- Outer glow -->
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <!-- Outer ring -->
+      <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(0,212,255,0.7)" stroke-width="2" filter="url(#glow)"/>
+      <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(0,212,255,0.9)" stroke-width="1.5" stroke-dasharray="10 5">
+        <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="20s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Middle rings -->
+      <circle cx="100" cy="100" r="75" fill="none" stroke="rgba(0,212,255,0.8)" stroke-width="3" filter="url(#glow)"/>
+      <circle cx="100" cy="100" r="70" fill="none" stroke="rgba(0,212,255,1)" stroke-width="1.5" stroke-dasharray="20 10">
+        <animateTransform attributeName="transform" type="rotate" from="360 100 100" to="0 100 100" dur="15s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Inner rings -->
+      <circle cx="100" cy="100" r="55" fill="none" stroke="rgba(0,212,255,0.9)" stroke-width="2" filter="url(#glow)"/>
+      <circle cx="100" cy="100" r="50" fill="none" stroke="rgba(0,212,255,1)" stroke-width="1.5" stroke-dasharray="5 3">
+        <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="10s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Core - bright center -->
+      <circle cx="100" cy="100" r="35" fill="rgba(0,212,255,0.2)" stroke="rgba(0,212,255,1)" stroke-width="2" filter="url(#glow)"/>
+      <circle cx="100" cy="100" r="25" fill="rgba(0,212,255,0.4)" stroke="rgba(0,212,255,1)" stroke-width="1.5"/>
+      <circle cx="100" cy="100" r="15" fill="rgba(0,212,255,0.8)">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="100" cy="100" r="8" fill="rgba(255,255,255,0.9)">
+        <animate attributeName="opacity" values="0.9;1;0.9" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Decorative lines -->
+      <g stroke="rgba(0,212,255,0.8)" stroke-width="1.5" filter="url(#glow)">
+        <line x1="100" y1="5" x2="100" y2="25"/>
+        <line x1="100" y1="175" x2="100" y2="195"/>
+        <line x1="5" y1="100" x2="25" y2="100"/>
+        <line x1="175" y1="100" x2="195" y2="100"/>
+      </g>
+
+      <!-- Corner brackets -->
+      <g stroke="rgba(0,212,255,1)" stroke-width="2" fill="none" filter="url(#glow)">
+        <path d="M 20,40 L 20,20 L 40,20"/>
+        <path d="M 160,20 L 180,20 L 180,40"/>
+        <path d="M 180,160 L 180,180 L 160,180"/>
+        <path d="M 40,180 L 20,180 L 20,160"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="hud-container" id="hudContainer">
+    <!-- Header -->
+    <header class="hud-header">
+      <div class="hud-title">
+        <h1>JARVIS</h1>
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">ONLINE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main chat area -->
+    <main class="hud-main" role="main">
+      <div class="chat-container" id="chatContainer" role="log" aria-live="polite">
+        <div class="chat-line jarvis">
+          <span class="chat-label">JARVIS</span>
+          <span class="chat-text">Good evening, sir. All systems operational. The homelab is running smoothly with all services online. How may I assist you today?</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Voice waveform -->
+    <div class="waveform-container" id="waveformContainer">
+      <canvas id="waveformCanvas"></canvas>
+    </div>
+
+    <!-- Input area - minimal -->
+    <div class="input-bar">
+      <button class="input-icon-btn" id="micBtn" title="Voice Input - Click to speak your message" aria-label="Voice Input">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        </svg>
+      </button>
+      <input type="text" id="messageInput" placeholder=">" autocomplete="off">
+      <button class="input-icon-btn" id="speakerBtn" title="Toggle JARVIS Voice - Enable/disable spoken responses" aria-label="Toggle Voice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        </svg>
+      </button>
+      <button class="input-icon-btn" id="wakeWordBtn" title="Wake Word Mode - Say 'Hey JARVIS' to activate (Ctrl+J)" aria-label="Wake Word Mode"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg></button>
+      <button class="input-icon-btn primary" id="sendBtn" title="Send Message" aria-label="Send Message">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+      <button class="input-icon-btn" id="expandBtn" title="Expand Input - Write longer messages" aria-label="Expand Input">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 3 21 3 21 9"/>
+          <polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/>
+          <line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Expanded input modal -->
+  <div class="expand-modal" id="expandModal">
+    <div class="expand-modal-content">
+      <textarea id="expandedInput" placeholder="Enter your message..."></textarea>
+      <div class="expand-modal-actions">
+        <button class="modal-btn" id="cancelExpand">Cancel</button>
+        <button class="modal-btn primary" id="submitExpand">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick command menu -->
+  <div class="quick-menu" id="quickMenu">
+    <div class="quick-menu-items">
+      <button class="quick-menu-item" data-command="What is the homelab status?">
+        <span>📊</span> Status
+      </button>
+      <button class="quick-menu-item" data-command="Show network topology (3D)">
+        <span>🌐</span> Network
+      </button>
+      <button class="quick-menu-item" data-command="List all running services">
+        <span>⚡</span> Services
+      </button>
+      <button class="quick-menu-item" onclick="jarvis.showCameras()" data-action="cameras">
+        <span>📹</span> Cameras
+      </button>
+      <button class="quick-btn" onclick="jarvis.togglePanel('costPanel')" title="API Costs">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+        </svg>
+      </button>
+      <button class="quick-btn" onclick="jarvis.togglePanel('settingsPanel')" title="Settings">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.49.49 0 00-.48-.41h-3.84a.49.49 0 00-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.49.49 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32a.49.49 0 00.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54a.49.49 0 00.48.41h3.84a.49.49 0 00.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96a.49.49 0 00.59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 110-7.2 3.6 3.6 0 010 7.2z"/>
+        </svg>
+      </button>
+    </div>
+    <button class="quick-menu-trigger" id="quickMenuTrigger">⚡</button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="speech.js"></script>
+  <script src="jarvis.js"></script>
+  <!-- Overlay -->
+  <div class="overlay" id="overlay" onclick="jarvis.closeTopology()"></div>
+
+  <!-- 3D Topology Modal -->
+  <div class="topology-container" id="topologyContainer">
+    <div class="topology-header">
+      <span class="topology-title">Network Topology</span>
+      <button class="topology-close" onclick="jarvis.closeTopology()">&times;</button>
+    </div>
+    <div class="topology-canvas" id="topologyCanvas"></div>
+    <div class="topology-legend">
+      <div class="legend-item"><div class="legend-dot router"></div>Router</div>
+      <div class="legend-item"><div class="legend-dot server"></div>Server</div>
+      <div class="legend-item"><div class="legend-dot storage"></div>Storage</div>
+      <div class="legend-item"><div class="legend-dot service"></div>Service</div>
+    </div>
+  </div>
+
+  <!-- Floating Panels -->
+  <div class="floating-panel right" id="metricsPanel">
+    <div class="panel-header">
+      <span class="panel-title">System Metrics</span>
+      <button class="panel-close" onclick="jarvis.hidePanel('metricsPanel')">&times;</button>
+    </div>
+    <div id="metricsPanelContent">
+      <div class="metric-item">
+        <span class="metric-label">Loading...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="floating-panel left" id="servicesPanel">
+    <div class="panel-header">
+      <span class="panel-title">Services</span>
+      <button class="panel-close" onclick="jarvis.hidePanel('servicesPanel')">&times;</button>
+    </div>
+    <div id="servicesPanelContent">
+      <div class="service-item">
+        <span class="metric-label">Loading...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost Panel -->
+  <div class="floating-panel bottom-right" id="costPanel">
+    <div class="panel-header">
+      <span class="panel-title">API Costs</span>
+      <button class="panel-close" onclick="jarvis.hidePanel('costPanel')">&times;</button>
+    </div>
+    <div class="cost-view-tabs">
+      <button class="cost-tab active" onclick="jarvis.switchCostView('summary')">Summary</button>
+      <button class="cost-tab" onclick="jarvis.switchCostView('tool')">By Tool</button>
+      <button class="cost-tab" onclick="jarvis.switchCostView('daily')">By Day</button>
+    </div>
+    <div id="costPanelContent">
+      <div class="cost-loading">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="floating-panel center" id="settingsPanel">
+    <div class="panel-header">
+      <span class="panel-title">Settings</span>
+      <button class="panel-close" onclick="jarvis.hidePanel('settingsPanel')">&times;</button>
+    </div>
+    <div id="settingsPanelContent" class="settings-content">
+      <div class="settings-group">
+        <label class="settings-label">AI Model</label>
+        <select id="settingModel" class="settings-select" onchange="jarvis.updateSetting('ai_model', this.value)">
+        </select>
+        <small class="settings-hint" id="modelHint"></small>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">Voice</label>
+        <select id="settingVoice" class="settings-select" onchange="jarvis.updateSetting('voice_id', this.value)">
+        </select>
+        <small class="settings-hint" id="voiceHint"></small>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">Location</label>
+        <div class="settings-row">
+          <input type="text" id="settingLocationName" class="settings-input" placeholder="Location name" onchange="jarvis.updateSetting('location_name', this.value)">
+        </div>
+        <div class="settings-row">
+          <input type="number" id="settingLat" class="settings-input small" placeholder="Latitude" step="0.0001" onchange="jarvis.updateSetting('location_lat', parseFloat(this.value))">
+          <input type="number" id="settingLon" class="settings-input small" placeholder="Longitude" step="0.0001" onchange="jarvis.updateSetting('location_lon', parseFloat(this.value))">
+        </div>
+        <div class="settings-row">
+          <select id="settingTimezone" class="settings-select" onchange="jarvis.updateSetting('location_timezone', this.value)">
+            <option value="Europe/London">Europe/London</option>
+            <option value="America/New_York">America/New_York</option>
+            <option value="America/Los_Angeles">America/Los_Angeles</option>
+            <option value="America/Chicago">America/Chicago</option>
+            <option value="Europe/Paris">Europe/Paris</option>
+            <option value="Europe/Berlin">Europe/Berlin</option>
+            <option value="Asia/Tokyo">Asia/Tokyo</option>
+            <option value="Australia/Sydney">Australia/Sydney</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-status" id="settingsStatus"></div>
+    </div>
+  </div>
+
+  <!-- Doorbell Sound -->
+  <audio id="doorbellSound" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+  </audio>
+</body>
+</html>
+
+<!-- Camera Modal -->
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-modal-content">
+    <div class="camera-modal-header">
+      <span class="camera-modal-title">Camera Feeds</span>
+      <button class="camera-modal-close" onclick="jarvis.closeCameras()">&times;</button>
+    </div>
+    <div class="camera-grid" id="cameraGrid">
+      <div class="camera-loading">Loading cameras...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Fullscreen View -->
+<div class="camera-fullscreen" id="cameraFullscreen">
+  <div class="camera-fullscreen-header">
+    <span class="camera-fullscreen-title" id="cameraFullscreenTitle">Camera</span>
+    <button class="camera-fullscreen-close" onclick="jarvis.closeCameraFullscreen()">&times;</button>
+  </div>
+  <video class="camera-fullscreen-video" id="cameraFullscreenVideo" autoplay muted playsinline></video>
+  <img class="camera-fullscreen-img" id="cameraFullscreenImg" style="display:none">
+</div>

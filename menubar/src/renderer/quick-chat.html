@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS Quick Chat</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="quick-chat">
+  <div class="header">
+    <div class="title">
+      <span class="logo">J.A.R.V.I.S.</span>
+      <span class="status-indicator" id="status"></span>
+    </div>
+    <button class="close-btn" id="closeBtn">×</button>
+  </div>
+  
+  <div class="chat-container" id="chatContainer">
+    <div class="welcome-message">
+      <h2>Hello, I'm JARVIS</h2>
+      <p>How can I assist you today?</p>
+    </div>
+  </div>
+  
+  <div class="input-container">
+    <textarea 
+      id="messageInput" 
+      placeholder="Ask JARVIS anything..."
+      rows="1"
+    ></textarea>
+    <button id="sendBtn" class="send-btn">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M2 10L18 2L12 18L10 11L2 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+  
+  <script src="quick-chat.js"></script>
+</body>
+</html>
