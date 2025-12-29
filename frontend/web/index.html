@@ -157,11 +157,6 @@
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
         </svg>
       </button>
-      <button class="quick-btn" onclick="jarvis.togglePanel('settingsPanel')" title="Settings">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.49.49 0 00-.48-.41h-3.84a.49.49 0 00-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.49.49 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32a.49.49 0 00.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54a.49.49 0 00.48.41h3.84a.49.49 0 00.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96a.49.49 0 00.59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 110-7.2 3.6 3.6 0 010 7.2z"/>
-        </svg>
-      </button>
     </div>
     <button class="quick-menu-trigger" id="quickMenuTrigger">⚡</button>
   </div>
@@ -225,54 +220,6 @@
     </div>
     <div id="costPanelContent">
       <div class="cost-loading">Loading...</div>
-    </div>
-  </div>
-
-  <!-- Settings Panel -->
-  <div class="floating-panel center" id="settingsPanel">
-    <div class="panel-header">
-      <span class="panel-title">Settings</span>
-      <button class="panel-close" onclick="jarvis.hidePanel('settingsPanel')">&times;</button>
-    </div>
-    <div id="settingsPanelContent" class="settings-content">
-      <div class="settings-group">
-        <label class="settings-label">AI Model</label>
-        <select id="settingModel" class="settings-select" onchange="jarvis.updateSetting('ai_model', this.value)">
-        </select>
-        <small class="settings-hint" id="modelHint"></small>
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">Voice</label>
-        <select id="settingVoice" class="settings-select" onchange="jarvis.updateSetting('voice_id', this.value)">
-        </select>
-        <small class="settings-hint" id="voiceHint"></small>
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">Location</label>
-        <div class="settings-row">
-          <input type="text" id="settingLocationName" class="settings-input" placeholder="Location name" onchange="jarvis.updateSetting('location_name', this.value)">
-        </div>
-        <div class="settings-row">
-          <input type="number" id="settingLat" class="settings-input small" placeholder="Latitude" step="0.0001" onchange="jarvis.updateSetting('location_lat', parseFloat(this.value))">
-          <input type="number" id="settingLon" class="settings-input small" placeholder="Longitude" step="0.0001" onchange="jarvis.updateSetting('location_lon', parseFloat(this.value))">
-        </div>
-        <div class="settings-row">
-          <select id="settingTimezone" class="settings-select" onchange="jarvis.updateSetting('location_timezone', this.value)">
-            <option value="Europe/London">Europe/London</option>
-            <option value="America/New_York">America/New_York</option>
-            <option value="America/Los_Angeles">America/Los_Angeles</option>
-            <option value="America/Chicago">America/Chicago</option>
-            <option value="Europe/Paris">Europe/Paris</option>
-            <option value="Europe/Berlin">Europe/Berlin</option>
-            <option value="Asia/Tokyo">Asia/Tokyo</option>
-            <option value="Australia/Sydney">Australia/Sydney</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="settings-status" id="settingsStatus"></div>
     </div>
   </div>
 

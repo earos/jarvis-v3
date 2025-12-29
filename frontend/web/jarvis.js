@@ -71,7 +71,6 @@ class JarvisHUD {
     this.elements.messageInput.focus();
     this.elements.speakerBtn.classList.add('active');
     this.connectWebSocket();
-    this.loadSettings();
   }
 
   setupEventListeners() {
@@ -390,7 +389,6 @@ class JarvisHUD {
       if (panelId === 'metricsPanel') this.loadMetrics();
       else if (panelId === 'servicesPanel') this.loadServices();
       else if (panelId === 'costPanel') { this.loadCosts(this.currentCostView); this.startCostRefresh(); }
-      else if (panelId === 'settingsPanel') { this.loadSettings(); }
     }
   }
 
@@ -442,7 +440,6 @@ class JarvisHUD {
         if (panelId === 'metricsPanel') this.loadMetrics();
         else if (panelId === 'servicesPanel') this.loadServices();
       else if (panelId === 'costPanel') { this.loadCosts(this.currentCostView); this.startCostRefresh(); }
-      else if (panelId === 'settingsPanel') { this.loadSettings(); }
       }
     }
   }
@@ -528,93 +525,6 @@ class JarvisHUD {
     if (this.alertsInterval) clearInterval(this.alertsInterval);
     if (this.waveformAnimationId) {
       cancelAnimationFrame(this.waveformAnimationId);
-    }
-  }
-
-  // ============ SETTINGS METHODS ============
-  
-  async loadSettings() {
-    try {
-      const response = await fetch(JARVIS_CONFIG.API.SETTINGS);
-      const data = await response.json();
-      this.settings = data.settings;
-      this.availableModels = data.available_models;
-      this.availableVoices = data.available_voices;
-      this.populateSettingsPanel();
-    } catch (err) {
-      console.error('Failed to load settings:', err);
-    }
-  }
-
-  populateSettingsPanel() {
-    // Populate model dropdown
-    const modelSelect = document.getElementById('settingModel');
-    if (modelSelect && this.availableModels) {
-      modelSelect.innerHTML = this.availableModels.map(m =>
-        `<option value="${m.id}" ${m.id === this.settings.ai_model ? 'selected' : ''}>${m.name}</option>`
-      ).join('');
-      const selectedModel = this.availableModels.find(m => m.id === this.settings.ai_model);
-      document.getElementById('modelHint').textContent = selectedModel ? selectedModel.description : '';
-    }
-
-    // Populate voice dropdown
-    const voiceSelect = document.getElementById('settingVoice');
-    if (voiceSelect && this.availableVoices) {
-      voiceSelect.innerHTML = this.availableVoices.map(v =>
-        `<option value="${v.id}" ${v.id === this.settings.voice_id ? 'selected' : ''}>${v.name}</option>`
-      ).join('');
-      const selectedVoice = this.availableVoices.find(v => v.id === this.settings.voice_id);
-      document.getElementById('voiceHint').textContent = selectedVoice ? selectedVoice.description : '';
-    }
-
-    // Populate location fields
-    const locName = document.getElementById('settingLocationName');
-    const locLat = document.getElementById('settingLat');
-    const locLon = document.getElementById('settingLon');
-    const locTz = document.getElementById('settingTimezone');
-    if (locName) locName.value = this.settings.location_name || '';
-    if (locLat) locLat.value = this.settings.location_lat || '';
-    if (locLon) locLon.value = this.settings.location_lon || '';
-    if (locTz) locTz.value = this.settings.location_timezone || 'Europe/London';
-  }
-
-  async updateSetting(key, value) {
-    try {
-      this.settings[key] = value;
-
-      // Update hints if model or voice changed
-      if (key === 'ai_model') {
-        const model = this.availableModels.find(m => m.id === value);
-        document.getElementById('modelHint').textContent = model ? model.description : '';
-      }
-      if (key === 'voice_id') {
-        const voice = this.availableVoices.find(v => v.id === value);
-        document.getElementById('voiceHint').textContent = voice ? voice.description : '';
-      }
-
-      const response = await fetch(JARVIS_CONFIG.API.SETTINGS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.settings)
-      });
-
-      if (response.ok) {
-        this.showSettingsStatus('Settings saved');
-      } else {
-        throw new Error('Failed to save');
-      }
-    } catch (err) {
-      console.error('Failed to update setting:', err);
-      this.showSettingsStatus('Failed to save settings', true);
-    }
-  }
-
-  showSettingsStatus(message, isError = false) {
-    const status = document.getElementById('settingsStatus');
-    if (status) {
-      status.textContent = message;
-      status.className = 'settings-status' + (isError ? ' error' : '');
-      setTimeout(() => { status.textContent = ''; }, 2000);
     }
   }
 
