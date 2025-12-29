@@ -388,7 +388,7 @@ class JarvisHUD {
       panel.classList.add('visible');
       if (panelId === 'metricsPanel') this.loadMetrics();
       else if (panelId === 'servicesPanel') this.loadServices();
-      else if (panelId === 'costPanel') { this.loadCosts(this.currentCostView); this.startCostRefresh(); }
+      
     }
   }
 
@@ -426,7 +426,6 @@ class JarvisHUD {
     const panel = document.getElementById(panelId);
     if (panel) {
       panel.classList.remove('visible');
-      if (panelId === 'costPanel') this.stopCostRefresh();
     }
   }
 
@@ -439,7 +438,7 @@ class JarvisHUD {
       if (!isCurrentlyVisible) {
         if (panelId === 'metricsPanel') this.loadMetrics();
         else if (panelId === 'servicesPanel') this.loadServices();
-      else if (panelId === 'costPanel') { this.loadCosts(this.currentCostView); this.startCostRefresh(); }
+      
       }
     }
   }
@@ -528,111 +527,6 @@ class JarvisHUD {
     }
   }
 
-  // ============ COST TRACKING METHODS ============
-
-  async loadCosts(view = 'summary') {
-    const panel = document.getElementById('costPanelContent');
-    if (!panel) return;
-    
-    try {
-      const breakdown = view === 'summary' ? '' : view === 'tool' ? '&breakdown=tool' : '&breakdown=daily';
-      const response = await fetch(JARVIS_CONFIG.API.COSTS + '?days=7' + breakdown);
-      const data = await response.json();
-      
-      if (view === 'summary') {
-        panel.innerHTML = this.renderCostSummary(data);
-      } else if (view === 'tool') {
-        panel.innerHTML = this.renderCostByTool(data);
-      } else {
-        panel.innerHTML = this.renderCostByDay(data);
-      }
-    } catch (err) {
-      console.error('Failed to load costs:', err);
-      panel.innerHTML = '<div class="cost-error">Failed to load costs</div>';
-    }
-  }
-
-  renderCostSummary(data) {
-    const services = data.by_service || {};
-    let html = '<div class="cost-summary">';
-    
-    Object.entries(services).forEach(([service, info]) => {
-      const cost = (info.total_cost || 0).toFixed(4);
-      html += `<div class="cost-item">
-        <span class="cost-service">${service.toUpperCase()}</span>
-        <span class="cost-amount">$${cost}</span>
-        <span class="cost-detail">${info.count || 0} requests</span>
-      </div>`;
-    });
-    
-    const total = (data.total_cost || 0).toFixed(4);
-    html += `<div class="cost-total">TOTAL: $${total}</div>`;
-    html += this.renderCostViewButtons();
-    html += '</div>';
-    return html;
-  }
-
-  renderCostByTool(data) {
-    const tools = data.by_tool || {};
-    let html = '<div class="cost-by-tool">';
-    
-    Object.entries(tools).sort((a, b) => b[1].total_cost - a[1].total_cost).forEach(([tool, info]) => {
-      const cost = (info.total_cost || 0).toFixed(4);
-      html += `<div class="cost-item">
-        <span class="cost-tool">${tool}</span>
-        <span class="cost-amount">$${cost}</span>
-        <span class="cost-detail">${info.count || 0} calls</span>
-      </div>`;
-    });
-    
-    html += this.renderCostViewButtons();
-    html += '</div>';
-    return html;
-  }
-
-  renderCostByDay(data) {
-    const days = data.by_day || [];
-    let html = '<div class="cost-by-day">';
-    
-    days.forEach(day => {
-      const cost = (day.total_cost || 0).toFixed(4);
-      html += `<div class="cost-item">
-        <span class="cost-date">${day.date}</span>
-        <span class="cost-amount">$${cost}</span>
-      </div>`;
-    });
-    
-    html += this.renderCostViewButtons();
-    html += '</div>';
-    return html;
-  }
-
-  renderCostViewButtons() {
-    return `<div class="cost-view-buttons">
-      <button onclick="jarvis.switchCostView('summary')" class="${this.currentCostView === 'summary' ? 'active' : ''}">Summary</button>
-      <button onclick="jarvis.switchCostView('tool')" class="${this.currentCostView === 'tool' ? 'active' : ''}">By Tool</button>
-      <button onclick="jarvis.switchCostView('daily')" class="${this.currentCostView === 'daily' ? 'active' : ''}">By Day</button>
-    </div>`;
-  }
-
-  switchCostView(view) {
-    this.currentCostView = view;
-    this.loadCosts(view);
-  }
-
-  startCostRefresh() {
-    this.stopCostRefresh();
-    this.costRefreshInterval = setInterval(() => {
-      this.loadCosts(this.currentCostView);
-    }, 30000);
-  }
-
-  stopCostRefresh() {
-    if (this.costRefreshInterval) {
-      clearInterval(this.costRefreshInterval);
-      this.costRefreshInterval = null;
-    }
-  }
 
   // ============ WEBSOCKET METHODS ============
 
