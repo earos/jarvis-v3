@@ -82,6 +82,7 @@ app.add_middleware(
 # Include routers
 app.include_router(webhook_router, prefix="/api", tags=["webhooks"])
 app.include_router(compatibility_router, tags=["compatibility"])
+app.include_router(integrations_router, tags=["integrations"])
 
 
 # Request/Response models

@@ -20,9 +20,88 @@ router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 # Path to store integration overrides
 INTEGRATIONS_FILE = Path("/opt/jarvis-v3/backend/data/integrations.json")
 
+# Path to .env file
+ENV_FILE = Path("/opt/jarvis-v3/backend/.env")
+
 # Define sensitive field patterns that should be masked
 SENSITIVE_FIELDS = {
     "password", "token", "api_key", "access_code", "token_value"
+}
+
+# Map integration field names to .env variable names
+ENV_FIELD_MAPPING = {
+    "anthropic": {
+        "api_key": "ANTHROPIC_API_KEY"
+    },
+    "unifi_network": {
+        "host": "UNIFI_HOST",
+        "username": "UNIFI_USER",
+        "password": "UNIFI_PASSWORD",
+        "site": "UNIFI_SITE"
+    },
+    "unifi_protect": {
+        "host": "PROTECT_HOST",
+        "username": "PROTECT_USER",
+        "password": "PROTECT_PASSWORD"
+    },
+    "proxmox": {
+        "pve1_host": "PROXMOX_PVE1_HOST",
+        "token_name": "PROXMOX_TOKEN_NAME",
+        "token_value": "PROXMOX_TOKEN_VALUE"
+    },
+    "prometheus": {
+        "url": "PROMETHEUS_URL"
+    },
+    "uptime_kuma": {
+        "url": "UPTIME_KUMA_URL"
+    },
+    "home_assistant": {
+        "url": "HOME_ASSISTANT_URL",
+        "token": "HOME_ASSISTANT_TOKEN"
+    },
+    "portainer": {
+        "url": "PORTAINER_URL",
+        "api_key": "PORTAINER_API_KEY"
+    },
+    "elevenlabs": {
+        "api_key": "ELEVENLABS_API_KEY",
+        "voice_id": "ELEVENLABS_VOICE_ID"
+    },
+    "tavily": {
+        "api_key": "TAVILY_API_KEY"
+    },
+    "synology": {
+        "host": "SYNOLOGY_HOST",
+        "user": "SYNOLOGY_USER",
+        "password": "SYNOLOGY_PASSWORD"
+    },
+    "adguard": {
+        "url": "ADGUARD_URL",
+        "user": "ADGUARD_USER",
+        "password": "ADGUARD_PASSWORD"
+    },
+    "grafana": {
+        "url": "GRAFANA_URL",
+        "api_key": "GRAFANA_API_KEY"
+    },
+    "nginx_proxy_manager": {
+        "url": "NPM_URL",
+        "user": "NPM_USER",
+        "password": "NPM_PASSWORD"
+    },
+    "starlink": {
+        "host": "STARLINK_HOST"
+    },
+    "bambu_printer": {
+        "host": "BAMBU_HOST",
+        "access_code": "BAMBU_ACCESS_CODE"
+    },
+    "prusa_printer": {
+        "host": "PRUSA_HOST",
+        "username": "PRUSA_USERNAME",
+        "password": "PRUSA_PASSWORD",
+        "api_key": "PRUSA_API_KEY"
+    },
 }
 
 
@@ -114,7 +193,7 @@ INTEGRATION_DEFINITIONS = {
         "env_prefix": "bambu"
     },
     "prusa_printer": {
-        "fields": ["host", "api_key"],
+        "fields": ["host", "username", "password", "api_key"],
         "env_prefix": "prusa"
     },
 }
@@ -136,11 +215,43 @@ def mask_sensitive_value(value: Any) -> str:
     return f"{str_value[:4]}...{str_value[-4:]}"
 
 
+def update_env_file(env_var: str, value: str) -> bool:
+    """Update a single environment variable in the .env file"""
+    if not ENV_FILE.exists():
+        logger.error(f".env file not found at {ENV_FILE}")
+        return False
+
+    try:
+        with open(ENV_FILE, "r") as f:
+            lines = f.readlines()
+
+        # Find and update the variable
+        found = False
+        for i, line in enumerate(lines):
+            if line.strip().startswith(f"{env_var}="):
+                lines[i] = f"{env_var}={value}\n"
+                found = True
+                break
+
+        # If not found, add it at the end
+        if not found:
+            lines.append(f"{env_var}={value}\n")
+
+        with open(ENV_FILE, "w") as f:
+            f.writelines(lines)
+
+        logger.info(f"Updated {env_var} in .env file")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update .env file: {e}")
+        return False
+
+
 def load_integration_overrides() -> Dict[str, Dict[str, Any]]:
     """Load integration overrides from JSON file"""
     if not INTEGRATIONS_FILE.exists():
         return {}
-    
+
     try:
         with open(INTEGRATIONS_FILE, 'r') as f:
             return json.load(f)
@@ -167,11 +278,11 @@ def save_integration_overrides(overrides: Dict[str, Dict[str, Any]]):
 def get_integration_config(name: str, mask_sensitive: bool = True) -> Dict[str, Any]:
     """
     Get configuration for a specific integration
-    
+
     Args:
         name: Integration name
         mask_sensitive: Whether to mask sensitive fields
-        
+
     Returns:
         Dictionary with integration configuration
     """
@@ -180,13 +291,13 @@ def get_integration_config(name: str, mask_sensitive: bool = True) -> Dict[str, 
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Integration '{name}' not found"
         )
-    
+
     definition = INTEGRATION_DEFINITIONS[name]
     settings = get_settings()
     overrides = load_integration_overrides()
-    
+
     config = {}
-    
+
     # Handle multi-host integrations (like Proxmox)
     if "multi_host" in definition:
         for host_suffix in definition["multi_host"]:
@@ -194,7 +305,7 @@ def get_integration_config(name: str, mask_sensitive: bool = True) -> Dict[str, 
             for field in definition["fields"]:
                 # Build the attribute name: proxmox_pve1_host, proxmox_pve1_password, etc.
                 attr_name = f"{definition['env_prefix']}_{host_suffix}_{field}"
-                
+
                 # Check overrides first
                 override_key = f"{host_suffix}_{field}"
                 if name in overrides and override_key in overrides[name]:
@@ -202,36 +313,36 @@ def get_integration_config(name: str, mask_sensitive: bool = True) -> Dict[str, 
                 else:
                     # Fall back to settings
                     value = getattr(settings, attr_name, None)
-                
+
                 # Mask sensitive fields if requested
                 if mask_sensitive and is_sensitive_field(field) and value:
                     value = mask_sensitive_value(value)
-                
+
                 host_config[field] = value
-            
+
             config[host_suffix] = host_config
     else:
         # Regular single-instance integration
         for field in definition["fields"]:
             # Build the attribute name: unifi_host, unifi_username, etc.
             attr_name = f"{definition['env_prefix']}_{field}"
-            
+
             # Check overrides first
             if name in overrides and field in overrides[name]:
                 value = overrides[name][field]
             else:
                 # Fall back to settings
                 value = getattr(settings, attr_name, None)
-            
+
             # Mask sensitive fields if requested
             if mask_sensitive and is_sensitive_field(field) and value:
                 value = mask_sensitive_value(value)
-            
+
             config[field] = value
-    
+
     # Determine if integration is enabled (has required fields configured)
     enabled = any(v is not None and v != "" for v in _flatten_config(config).values())
-    
+
     return {
         "name": name,
         "enabled": enabled,
@@ -257,7 +368,7 @@ async def list_integrations():
     Sensitive fields (passwords, tokens, API keys) are masked.
     """
     integrations = []
-    
+
     for name in sorted(INTEGRATION_DEFINITIONS.keys()):
         try:
             integration = get_integration_config(name, mask_sensitive=True)
@@ -270,7 +381,7 @@ async def list_integrations():
                 "config": {},
                 "error": str(e)
             })
-    
+
     return {
         "integrations": integrations,
         "count": len(integrations)
@@ -290,7 +401,7 @@ async def get_integration(name: str):
 async def update_integration(name: str, update: IntegrationUpdate):
     """
     Update configuration for a specific integration.
-    
+
     Request body:
     {
         "enabled": true,
@@ -300,7 +411,7 @@ async def update_integration(name: str, update: IntegrationUpdate):
             "password": "newpassword"
         }
     }
-    
+
     For multi-host integrations like Proxmox:
     {
         "config": {
@@ -313,30 +424,37 @@ async def update_integration(name: str, update: IntegrationUpdate):
             }
         }
     }
+
+    Note: Updates are written to the .env file immediately but require
+    a service restart to take effect.
     """
+    logger.info(f"Received update for {name}: {update}")
     if name not in INTEGRATION_DEFINITIONS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Integration '{name}' not found"
         )
-    
+
     if update.config is None and update.enabled is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Must provide either 'config' or 'enabled' field"
         )
-    
+
     # Load existing overrides
     overrides = load_integration_overrides()
-    
+
     # Initialize integration overrides if not exists
     if name not in overrides:
         overrides[name] = {}
-    
+
+    # Track fields that were updated for .env
+    env_updates = []
+
     # Update configuration if provided
     if update.config is not None:
         definition = INTEGRATION_DEFINITIONS[name]
-        
+
         # Validate and update fields
         if "multi_host" in definition:
             # Multi-host integration (e.g., Proxmox)
@@ -346,21 +464,21 @@ async def update_integration(name: str, update: IntegrationUpdate):
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid host '{host_suffix}' for integration '{name}'"
                     )
-                
+
                 for field, value in host_config.items():
                     if field not in definition["fields"]:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail=f"Invalid field '{field}' for integration '{name}'"
                         )
-                    
+
                     # Store with composite key: pve1_host, pve2_password, etc.
                     override_key = f"{host_suffix}_{field}"
-                    
+
                     # Don't store masked values (unchanged sensitive fields)
                     if is_sensitive_field(field) and value and "..." in str(value):
                         continue
-                    
+
                     overrides[name][override_key] = value
         else:
             # Single-instance integration
@@ -370,18 +488,31 @@ async def update_integration(name: str, update: IntegrationUpdate):
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid field '{field}' for integration '{name}'"
                     )
-                
+
                 # Don't store masked values (unchanged sensitive fields)
                 if is_sensitive_field(field) and value and "..." in str(value):
                     continue
-                
+
                 overrides[name][field] = value
-    
-    # Save overrides
+
+                # Also update .env file if we have a mapping
+                if name in ENV_FIELD_MAPPING and field in ENV_FIELD_MAPPING[name]:
+                    env_var = ENV_FIELD_MAPPING[name][field]
+                    if update_env_file(env_var, str(value) if value else ""):
+                        env_updates.append(env_var)
+
+    # Save overrides (for backup/reference)
     save_integration_overrides(overrides)
-    
-    # Return updated configuration (masked)
-    return get_integration_config(name, mask_sensitive=True)
+
+    # Build response
+    result = get_integration_config(name, mask_sensitive=True)
+
+    # Add note about restart if .env was updated
+    if env_updates:
+        result["message"] = f"Updated {len(env_updates)} setting(s). Restart the service to apply changes."
+        result["requires_restart"] = True
+
+    return result
 
 
 @router.get("/{name}/test")
@@ -395,7 +526,7 @@ async def test_integration(name: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Integration '{name}' not found"
         )
-    
+
     # Get unmasked configuration for testing
     try:
         integration = get_integration_config(name, mask_sensitive=False)
@@ -404,13 +535,13 @@ async def test_integration(name: str):
             success=False,
             message=f"Failed to load configuration: {str(e)}"
         )
-    
+
     if not integration["enabled"]:
         return IntegrationTestResult(
             success=False,
             message="Integration is not configured or enabled"
         )
-    
+
     # Perform integration-specific tests
     try:
         result = await _test_integration(name, integration["config"])
@@ -430,7 +561,7 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
     """
     import aiohttp
     import asyncio
-    
+
     # URL-based service tests
     if name in ["prometheus", "uptime_kuma", "grafana", "adguard", "nginx_proxy_manager", "portainer"]:
         url = config.get("url")
@@ -439,7 +570,7 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
                 success=False,
                 message="URL not configured"
             )
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=5), ssl=False) as response:
@@ -460,18 +591,18 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
                 message=f"Connection failed: {str(e)}",
                 details={"url": url}
             )
-    
+
     # Home Assistant test
     elif name == "home_assistant":
         url = config.get("url")
         token = config.get("token")
-        
+
         if not url or not token:
             return IntegrationTestResult(
                 success=False,
                 message="URL or token not configured"
             )
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {"Authorization": f"Bearer {token}"}
@@ -493,17 +624,68 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
                 success=False,
                 message=f"Connection failed: {str(e)}"
             )
-    
+
+    # Synology NAS test
+    elif name == "synology":
+        host = config.get("host")
+        user = config.get("user")
+        password = config.get("password")
+
+        if not host or not user or not password:
+            return IntegrationTestResult(
+                success=False,
+                message="Host, user, or password not configured"
+            )
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                # Try to authenticate with Synology DSM
+                auth_url = f"http://{host}:5000/webapi/auth.cgi"
+                params = {
+                    "api": "SYNO.API.Auth",
+                    "version": "3",
+                    "method": "login",
+                    "account": user,
+                    "passwd": password,
+                    "session": "jarvis",
+                    "format": "cookie"
+                }
+                async with session.get(auth_url, params=params, timeout=aiohttp.ClientTimeout(total=10), ssl=False) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get("success"):
+                            return IntegrationTestResult(
+                                success=True,
+                                message="Successfully authenticated with Synology NAS",
+                                details={"host": host}
+                            )
+                        else:
+                            error_code = data.get("error", {}).get("code", "unknown")
+                            return IntegrationTestResult(
+                                success=False,
+                                message=f"Authentication failed (error code: {error_code})"
+                            )
+                    else:
+                        return IntegrationTestResult(
+                            success=False,
+                            message=f"Connection failed: HTTP {response.status}"
+                        )
+        except Exception as e:
+            return IntegrationTestResult(
+                success=False,
+                message=f"Connection failed: {str(e)}"
+            )
+
     # Anthropic API test
     elif name == "anthropic":
         api_key = config.get("api_key")
-        
+
         if not api_key:
             return IntegrationTestResult(
                 success=False,
                 message="API key not configured"
             )
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
@@ -539,17 +721,17 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
                 success=False,
                 message=f"Connection failed: {str(e)}"
             )
-    
+
     # Starlink test
     elif name == "starlink":
         host = config.get("host")
-        
+
         if not host:
             return IntegrationTestResult(
                 success=False,
                 message="Host not configured"
             )
-        
+
         try:
             # Try to connect to Starlink gRPC endpoint (it should at least respond)
             import socket
@@ -557,7 +739,7 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
             sock.settimeout(5)
             result = sock.connect_ex((host, 9200))
             sock.close()
-            
+
             if result == 0:
                 return IntegrationTestResult(
                     success=True,
@@ -574,20 +756,20 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
                 success=False,
                 message=f"Connection failed: {str(e)}"
             )
-    
+
     # For other integrations, just verify configuration exists
     else:
         # Check if all required fields are configured
         definition = INTEGRATION_DEFINITIONS[name]
         missing_fields = []
-        
+
         if "multi_host" in definition:
             # Multi-host integration
             for host_suffix in definition["multi_host"]:
                 if host_suffix not in config:
                     missing_fields.append(host_suffix)
                     continue
-                
+
                 host_config = config[host_suffix]
                 for field in definition["fields"]:
                     if not host_config.get(field):
@@ -597,13 +779,13 @@ async def _test_integration(name: str, config: Dict[str, Any]) -> IntegrationTes
             for field in definition["fields"]:
                 if not config.get(field):
                     missing_fields.append(field)
-        
+
         if missing_fields:
             return IntegrationTestResult(
                 success=False,
                 message=f"Missing required fields: {', '.join(missing_fields)}"
             )
-        
+
         return IntegrationTestResult(
             success=True,
             message="Configuration appears valid (connection test not implemented for this integration)",

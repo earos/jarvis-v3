@@ -1,9 +1,8 @@
 """
 Starlink Tool for JARVIS v3
-Query Starlink satellite internet for connection status, speed, latency, and obstructions
+Query Starlink satellite internet via gRPC for connection status, speed, latency, and obstructions
 """
-import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from app.tools.base import BaseTool, ToolParameter, ToolDomain
 from app.config.settings import get_settings
@@ -20,7 +19,7 @@ class StarlinkTool(BaseTool):
 - Current speed (download/upload)
 - Latency and ping times
 - Obstructions and signal quality
-- Service history and statistics"""
+- Device info and software version"""
     
     domain = ToolDomain.HOMELAB
     
@@ -28,158 +27,100 @@ class StarlinkTool(BaseTool):
         ToolParameter(
             name="action",
             type="string",
-            description="Action to perform: 'status' (general status), 'speed' (current speeds), 'latency' (ping/latency), 'obstructions' (obstruction data), 'history' (recent statistics)"
+            description="Action to perform: 'status' (connection status, speeds, latency), 'device' (hardware/software info), 'obstructions' (obstruction data)"
         )
     ]
     
     def __init__(self):
-        self.base_url = f"http://{settings.starlink_host}"
+        self.host = settings.starlink_host
     
     async def execute(self, action: str) -> Dict[str, Any]:
-        """Execute Starlink query"""
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                # Query the Starlink status endpoint
-                # The Starlink dish provides a JSON API at /api/status
-                response = await client.post(
-                    f"{self.base_url}/api/status",
-                    json={},
-                    headers={"Content-Type": "application/json"}
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Extract relevant information based on action
-                if action == "status":
-                    return self._format_status(data)
-                elif action == "speed":
-                    return self._format_speed(data)
-                elif action == "latency":
-                    return self._format_latency(data)
-                elif action == "obstructions":
-                    return self._format_obstructions(data)
-                elif action == "history":
-                    return self._format_history(data)
-                else:
-                    return {
-                        "success": False,
-                        "error": f"Unknown action: {action}. Valid actions: status, speed, latency, obstructions, history"
-                    }
-                    
-            except httpx.HTTPStatusError as e:
-                return {
-                    "success": False,
-                    "error": f"HTTP {e.response.status_code}: {e.response.text[:200]}",
-                    "action": action
-                }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "error": str(e),
-                    "action": action
-                }
-    
-    def _format_status(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Format general status information"""
+        """Execute Starlink query via gRPC"""
         try:
-            status = data.get("status", {})
-            device_info = data.get("deviceInfo", {})
+            import starlink_grpc
+            
+            # Create channel context with custom host if not default
+            context = None
+            if self.host and self.host != "192.168.100.1":
+                context = starlink_grpc.ChannelContext(target=self.host)
+            
+            if action == "status":
+                return self._get_status(starlink_grpc, context)
+            elif action == "device":
+                return self._get_device_info(starlink_grpc, context)
+            elif action == "obstructions":
+                return self._get_obstructions(starlink_grpc, context)
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unknown action: {action}. Valid: status, device, obstructions"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "action": action
+            }
+    
+    def _get_status(self, starlink_grpc, context) -> Dict[str, Any]:
+        """Get connection status including speeds and latency"""
+        try:
+            status, obs, alerts = starlink_grpc.status_data(context=context)
             
             return {
                 "success": True,
                 "action": "status",
                 "data": {
                     "state": status.get("state", "unknown"),
-                    "uptime": status.get("uptimeS", 0),
-                    "uptime_hours": round(status.get("uptimeS", 0) / 3600, 2),
-                    "alerts": status.get("alerts", {}),
-                    "hardware_version": device_info.get("hardwareVersion", "unknown"),
-                    "software_version": device_info.get("softwareVersion", "unknown"),
-                    "country_code": device_info.get("countryCode", "unknown")
+                    "uptime_seconds": status.get("uptime", 0),
+                    "uptime_hours": round(status.get("uptime", 0) / 3600, 2),
+                    "download_mbps": round(status.get("downlink_throughput_bps", 0) / 1_000_000, 2),
+                    "upload_mbps": round(status.get("uplink_throughput_bps", 0) / 1_000_000, 2),
+                    "ping_latency_ms": round(status.get("pop_ping_latency_ms", 0), 1),
+                    "ping_drop_rate_percent": round(status.get("pop_ping_drop_rate", 0) * 100, 2),
+                    "snr": status.get("snr"),
+                    "alerts": [k for k, v in alerts.items() if v],
                 }
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to parse status data: {str(e)}"
-            }
+            return {"success": False, "error": str(e), "action": "status"}
     
-    def _format_speed(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Format speed information"""
+    def _get_device_info(self, starlink_grpc, context) -> Dict[str, Any]:
+        """Get device hardware and software info"""
         try:
-            status = data.get("status", {})
+            status, obs, alerts = starlink_grpc.status_data(context=context)
             
             return {
                 "success": True,
-                "action": "speed",
+                "action": "device",
                 "data": {
-                    "download_mbps": round(status.get("downlinkThroughputBps", 0) / 1_000_000, 2),
-                    "upload_mbps": round(status.get("uplinkThroughputBps", 0) / 1_000_000, 2)
+                    "device_id": status.get("id", "unknown"),
+                    "hardware_version": status.get("hardware_version", "unknown"),
+                    "software_version": status.get("software_version", "unknown"),
+                    "country_code": status.get("country_code", "unknown"),
+                    "utc_offset_s": status.get("utc_offset_s"),
+                    "uptime_seconds": status.get("uptime", 0),
                 }
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to parse speed data: {str(e)}"
-            }
+            return {"success": False, "error": str(e), "action": "device"}
     
-    def _format_latency(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Format latency information"""
+    def _get_obstructions(self, starlink_grpc, context) -> Dict[str, Any]:
+        """Get obstruction data"""
         try:
-            status = data.get("status", {})
-            
-            return {
-                "success": True,
-                "action": "latency",
-                "data": {
-                    "ping_ms": round(status.get("popPingLatencyMs", 0), 2),
-                    "ping_drop_rate": round(status.get("popPingDropRate", 0) * 100, 2)
-                }
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to parse latency data: {str(e)}"
-            }
-    
-    def _format_obstructions(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Format obstruction information"""
-        try:
-            obstruction_stats = data.get("obstructionStats", {})
+            status, obs, alerts = starlink_grpc.status_data(context=context)
             
             return {
                 "success": True,
                 "action": "obstructions",
                 "data": {
-                    "currently_obstructed": obstruction_stats.get("currentlyObstructed", False),
-                    "fraction_obstructed": round(obstruction_stats.get("fractionObstructed", 0) * 100, 2),
-                    "time_obstructed": obstruction_stats.get("validS", 0),
-                    "wedge_fraction_obstructed": obstruction_stats.get("wedgeFractionObstructed", [])[:10]
+                    "currently_obstructed": obs.get("currently_obstructed", False),
+                    "fraction_obstructed_percent": round(obs.get("fraction_obstructed", 0) * 100, 2),
+                    "last_24h_obstructed_seconds": obs.get("last_24h_obstructed_s", 0),
+                    "valid_seconds": obs.get("valid_s", 0),
+                    "wedge_fraction_obstructed": [round(w * 100, 1) for w in obs.get("wedge_fraction_obstructed", [])],
                 }
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to parse obstruction data: {str(e)}"
-            }
-    
-    def _format_history(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Format historical statistics"""
-        try:
-            status = data.get("status", {})
-            
-            return {
-                "success": True,
-                "action": "history",
-                "data": {
-                    "outage_count": status.get("outages", {}).get("count", 0),
-                    "last_24h_outage_duration_s": status.get("outages", {}).get("last24hOutageDurationS", 0),
-                    "uptime_s": status.get("uptimeS", 0),
-                    "uptime_hours": round(status.get("uptimeS", 0) / 3600, 2)
-                }
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to parse history data: {str(e)}"
-            }
+            return {"success": False, "error": str(e), "action": "obstructions"}

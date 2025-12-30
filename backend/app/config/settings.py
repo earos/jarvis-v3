@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     bambu_access_code: Optional[str] = None
     prusa_host: Optional[str] = None
     prusa_api_key: Optional[str] = None
+    prusa_username: Optional[str] = None
+    prusa_password: Optional[str] = None
     
     # Nginx Proxy Manager
     npm_url: str = "http://192.168.10.104:81"

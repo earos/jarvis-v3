@@ -45,31 +45,54 @@ journalctl -u jarvis-v3 -f
 | Feature | Description |
 |---------|-------------|
 | AI Chat | Claude-powered with streaming responses |
-| 15 Tools | Homelab monitoring and management |
+| 22 Tools | Homelab monitoring and management |
 | Voice I/O | ElevenLabs TTS (30-90x optimized) |
 | Menu Bar | macOS app with Cmd+Shift+J shortcut |
 | WebSocket | Real-time doorbell/motion alerts |
-| Metrics | Prometheus integration |
+| Settings UI | Configure all integrations via menu bar app |
+| Metrics | Prometheus/Grafana integration |
 | Services | Uptime Kuma monitoring |
 | Cameras | UniFi Protect integration |
 
-## Tools (15 Total)
+## Tools (22 Total)
 
-### Homelab (12)
+### Infrastructure (8)
 | Tool | Description |
 |------|-------------|
 | `proxmox_query` | Query Proxmox cluster status |
 | `proxmox_manage` | Start/stop VMs and containers |
 | `prometheus` | Query metrics via PromQL |
 | `uptime_kuma` | Service health monitoring |
+| `query_portainer` | Docker container status |
+| `manage_portainer` | Start/stop containers |
+| `grafana` | Query Grafana dashboards |
+| `nginx_proxy_manager` | Manage proxy hosts |
+
+### Network (4)
+| Tool | Description |
+|------|-------------|
 | `unifi_network` | Network status and clients |
+| `adguard` | DNS and ad-blocking stats |
+| `starlink` | Satellite internet status/speed/obstructions |
+
+### Home Automation (4)
+| Tool | Description |
+|------|-------------|
 | `unifi_protect_query` | Camera and NVR status |
 | `unifi_protect_automation` | Camera automations |
 | `unifi_protect_webhook` | Webhook configuration |
 | `query_home_assistant` | HA sensor states |
 | `manage_home_assistant` | Control HA devices |
-| `query_portainer` | Docker container status |
-| `manage_portainer` | Start/stop containers |
+
+### Storage (1)
+| Tool | Description |
+|------|-------------|
+| `synology_nas` | NAS status, shares, storage |
+
+### 3D Printing (1)
+| Tool | Description |
+|------|-------------|
+| `printers_3d` | Bambu Lab X1C & Prusa MK3.5 status |
 
 ### Utilities (3)
 | Tool | Description |
@@ -85,9 +108,9 @@ journalctl -u jarvis-v3 -f
 - Features: Chat, TTS, services panel
 
 ### Menu Bar App (macOS)
-- Location: `/opt/jarvis-v3/menubar/` (server) or `~/jarvis-menubar/` (local)
+- Location: `~/jarvis-menubar/` (local development)
 - Shortcut: `Cmd+Shift+J`
-- Features: Quick chat, doorbell alerts, native notifications
+- Features: Quick chat, settings UI, doorbell alerts, native notifications, API cost tracking
 
 ## API Endpoints
 
@@ -96,6 +119,8 @@ journalctl -u jarvis-v3 -f
 | `/api/health` | GET | Health check |
 | `/api/chat/v2` | POST | Streaming chat (SSE) |
 | `/api/v1/tools` | GET | List all tools |
+| `/api/v1/integrations` | GET | List integrations |
+| `/api/v1/integrations/{name}` | PUT | Update integration |
 | `/api/services` | GET | Uptime Kuma status |
 | `/api/settings` | GET/POST | User settings |
 | `/api/costs` | GET | Cost tracking |
@@ -111,15 +136,45 @@ Environment: `/opt/jarvis-v3/backend/.env`
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Homelab Services
+# Infrastructure
 PROMETHEUS_URL=http://192.168.10.104:9090
 UPTIME_KUMA_URL=http://192.168.10.104:3001
 PROXMOX_TOKEN_NAME=...
 PROXMOX_TOKEN_VALUE=...
-UNIFI_HOST=192.168.10.1
-PROTECT_HOST=192.168.20.250
-HOME_ASSISTANT_TOKEN=...
 PORTAINER_API_KEY=...
+GRAFANA_URL=http://192.168.10.104:3000
+GRAFANA_API_KEY=...
+NPM_URL=http://192.168.10.104:81
+NPM_USER=...
+NPM_PASSWORD=...
+
+# Network
+UNIFI_HOST=192.168.10.1
+UNIFI_USER=...
+UNIFI_PASSWORD=...
+ADGUARD_URL=http://192.168.10.249:8080
+ADGUARD_USER=...
+ADGUARD_PASSWORD=...
+STARLINK_HOST=192.168.100.1
+
+# Home Automation
+PROTECT_HOST=192.168.20.250
+PROTECT_USER=...
+PROTECT_PASSWORD=...
+HOME_ASSISTANT_URL=http://192.168.10.104:8123
+HOME_ASSISTANT_TOKEN=...
+
+# Storage
+SYNOLOGY_HOST=192.168.10.249
+SYNOLOGY_USER=...
+SYNOLOGY_PASSWORD=...
+
+# 3D Printing
+BAMBU_HOST=192.168.10.172
+BAMBU_ACCESS_CODE=...
+PRUSA_HOST=192.168.10.186
+PRUSA_USERNAME=...
+PRUSA_PASSWORD=...
 
 # Optional
 ELEVENLABS_API_KEY=...
@@ -137,11 +192,10 @@ TAVILY_API_KEY=...
 │   │   ├── api/v1/              # REST endpoints
 │   │   ├── api/websocket/       # WebSocket
 │   │   ├── core/orchestrator/   # Claude agent
-│   │   └── tools/               # 15 tools
+│   │   └── tools/               # 22 tools
 │   ├── data/jarvis.db           # SQLite
 │   └── .env                     # Config
 ├── frontend/web/                # Web UI static files
-├── menubar/                     # Electron app
 └── README.md
 ```
 
@@ -154,6 +208,12 @@ journalctl -u jarvis-v3 -f    # Logs
 ```
 
 ## Version History
+
+### v3.0.1 (2025-12-30)
+- All 22 tools working
+- Added: Starlink (gRPC), Bambu Lab (MQTT), Prusa (HTTP Digest)
+- Settings UI for all integrations via menu bar app
+- Prusa username/password authentication support
 
 ### v3.0.0 (2025-12-29)
 - Complete rewrite: Node.js → Python/FastAPI
